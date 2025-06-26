@@ -8,7 +8,7 @@
     "dev": "node index.cjs"
   },
   "keywords": ["jewelrender", "catalog", "api"],
-  "author": "",
+  "author": "sgroy10",
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
