@@ -12,6 +12,7 @@ app.use(express.json({ limit: '10mb' }));
 // In-memory storage (or use a database)
 let catalogTags = null;
 let lastUpdated = null;
+let allBatches = []; // Store info about all uploaded batches
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -44,7 +45,7 @@ app.get('/api/catalog-tags', (req, res) => {
 // Save/Update catalog tags
 app.post('/api/catalog-tags', (req, res) => {
   try {
-    const { catalog, totalImages, userId, userEmail } = req.body;
+    const { catalog, totalImages, userId, userEmail, folderInfo } = req.body;
     
     if (!catalog || !Array.isArray(catalog)) {
       return res.status(400).json({ 
@@ -53,13 +54,35 @@ app.post('/api/catalog-tags', (req, res) => {
       });
     }
     
-    catalogTags = {
-      catalog,
-      totalImages: totalImages || catalog.length,
-      userId,
-      userEmail,
-      publishedAt: new Date().toISOString()
+    // If this is the first upload or we're replacing everything
+    if (!catalogTags) {
+      catalogTags = {
+        catalog: [],
+        totalImages: 0,
+        userId,
+        userEmail,
+        publishedAt: new Date().toISOString(),
+        batches: []
+      };
+    }
+    
+    // Add new batch info
+    const batchInfo = {
+      batchId: folderInfo?.batchId || `batch_${Date.now()}`,
+      folderName: folderInfo?.folderName || 'Unknown Folder',
+      driveType: folderInfo?.driveType || 'local',
+      networkPath: folderInfo?.networkPath,
+      analyzedDate: folderInfo?.analyzedDate || new Date().toISOString(),
+      imageCount: totalImages,
+      startIndex: catalogTags.catalog.length,
+      endIndex: catalogTags.catalog.length + catalog.length - 1
     };
+    
+    // Append to existing catalog
+    catalogTags.catalog = [...catalogTags.catalog, ...catalog];
+    catalogTags.totalImages = catalogTags.catalog.length;
+    catalogTags.batches.push(batchInfo);
+    catalogTags.lastUpdated = new Date().toISOString();
     
     lastUpdated = new Date().toISOString();
     
@@ -67,7 +90,8 @@ app.post('/api/catalog-tags', (req, res) => {
       success: true,
       message: 'Catalog tags updated successfully',
       totalImages: catalogTags.totalImages,
-      publishedAt: catalogTags.publishedAt
+      batchInfo: batchInfo,
+      totalBatches: catalogTags.batches.length
     });
     
   } catch (error) {
